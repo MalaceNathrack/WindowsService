@@ -1,0 +1,189 @@
+@model PlexMediaOrganizer.WebInterface.Models.HomeViewModel
+@using System.IO
+@using System.Linq
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plex Media Organizer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">Plex Media Organizer</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/Downloads">Downloads</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/swagger">API Documentation</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Processing Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6>Total Processed</h6>
+                                    <h2>@Model.StatusSummary.TotalProcessed</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6>Success Rate</h6>
+                                    <h2>@(Model.StatusSummary.TotalProcessed > 0 ? Math.Round((double)Model.StatusSummary.SuccessCount / Model.StatusSummary.TotalProcessed * 100, 1) : 0)%</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6>Movies</h6>
+                                    <h4>@Model.StatusSummary.MoviesCount</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6>TV Shows</h6>
+                                    <h4>@Model.StatusSummary.TvShowsCount</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Last Processed</h6>
+                            <p>@(Model.StatusSummary.LastProcessedTime != DateTime.MinValue ? Model.StatusSummary.LastProcessedTime.ToString("g") : "Never")</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>Source Directory</h6>
+                            <p>
+                                @Model.Settings.SourceDirectory
+                                <a href="/Downloads" class="btn btn-sm btn-outline-primary ms-2">
+                                    <i class="bi bi-folder2-open"></i> Browse
+                                </a>
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Incomplete Directory</h6>
+                            <p>@Model.Settings.IncompleteDirectory</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Movies Destination</h6>
+                            <p>@Model.Settings.MoviesDestination</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>TV Shows Destination</h6>
+                            <p>@Model.Settings.TvShowsDestination</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>API Keys</h6>
+                            <p>
+                                TMDB API Key: @(Model.Settings.HasTmdbApiKey ? "Configured" : "Not Configured")<br />
+                                TVDB API Key: @(Model.Settings.HasTvdbApiKey ? "Configured" : "Not Configured")
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>File</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.StatusSummary.RecentItems)
+                            {
+                                <tr>
+                                    <td>@item.Timestamp.ToString("g")</td>
+                                    <td>@(string.IsNullOrEmpty(item.FilePath) ? "-" : item.FilePath.Split('\\').Last())</td>
+                                    <td>@(string.IsNullOrEmpty(item.Title) ? "-" : item.Title)</td>
+                                    <td>
+                                        @if (item.Status == "Success")
+                                        {
+                                            <span class="badge bg-success">Success</span>
+                                        }
+                                        else if (item.Status == "Error")
+                                        {
+                                            <span class="badge bg-danger" title="@item.ErrorMessage">Error</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@item.Status</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Model.StatusSummary.RecentItems.Any())
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center">No recent activity</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-4 text-center text-muted">
+            <p>&copy; @DateTime.Now.Year - Plex Media Organizer</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
